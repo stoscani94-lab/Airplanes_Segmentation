@@ -3,3 +3,4 @@ VOC_exercise/
 dataset/
 checkpoints/
 wandb/
+__pycache__/

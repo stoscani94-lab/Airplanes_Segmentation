@@ -4,6 +4,7 @@ import lightning as L
 from torch.utils.data import Dataset, DataLoader
 from torchvision.io import read_image
 from torchvision import tv_tensors
+import torchvision.transforms.v2 as v2
 
 # ==========================================
 # 1. CLASSE DATASET (Livello Singola Immagine)
@@ -17,22 +18,18 @@ class SegmentationDataset(Dataset):
         """
         self.img_paths = img_paths
         self.mask_paths = mask_paths
+        self.resize = v2.Resize(size=(256, 256), antialias=True)
 
     def __len__(self):
         return len(self.img_paths)
 
     def __getitem__(self, idx):
-        # Lettura I/O nativa ultra-rapida (decodifica diretta in Tensor)
-        img = read_image(self.img_paths[idx])
-        mask = read_image(self.mask_paths[idx])
+        img = tv_tensors.Image(read_image(self.img_paths[idx]))
+        # read_image restituisce [1, H, W]; la loss vuole maschere [H, W] di interi
+        mask = tv_tensors.Mask(read_image(self.mask_paths[idx]).squeeze(0).to(torch.long))
 
-        # PyTorch per segmentazione vuole maschere di interi [H, W] (senza il canale)
-        # read_image restituisce [1, H, W], quindi rimuoviamo la prima dimensione e castiamo.
-        mask = mask.squeeze(0).to(torch.long)
-
-        # Incapsuliamo nei tv_tensors per la futura augmentation con tensorvision v2
-        img = tv_tensors.Image(img)
-        mask = tv_tensors.Mask(mask)
+        # Image+Mask: stesso 256x256, bilinear sull'immagine e nearest sulla maschera
+        img, mask = self.resize(img, mask)
 
         return img, mask
 
@@ -67,7 +64,7 @@ class SegmentationDataModule(L.LightningDataModule):
             self.train_ds = SegmentationDataset(train_imgs, train_masks)
             
             # Creiamo le liste per la Validation
-            val_imgs, val_masks = self._parse_split_file("val.txt")
+            val_imgs, val_masks = self._parse_split_file("validation.txt")
             self.val_ds = SegmentationDataset(val_imgs, val_masks)
 
         if stage == "test" or stage is None:
@@ -115,8 +112,9 @@ class SegmentationDataModule(L.LightningDataModule):
             batch_size=self.batch_size, 
             shuffle=True, 
             num_workers=self.num_workers,
-            pin_memory=True,     # Fondamentale per spostare i dati su GPU velocemente
-            drop_last=True       # Evita batch piccoli finali che possono dare noia a BatchNorm
+            pin_memory=False,   # Mettere TRUE per GPU classico, FALSE per MPS
+            drop_last=True,       # Evita batch piccoli finali che possono dare noia a BatchNorm
+            persistent_workers=True
         )
 
     def val_dataloader(self):
@@ -125,7 +123,8 @@ class SegmentationDataModule(L.LightningDataModule):
             batch_size=self.batch_size, 
             shuffle=False, 
             num_workers=self.num_workers,
-            pin_memory=True
+            pin_memory=False,   # Mettere TRUE per GPU classico, FALSE per MPS
+            persistent_workers=True
         )
 
     def test_dataloader(self):
@@ -134,7 +133,8 @@ class SegmentationDataModule(L.LightningDataModule):
             batch_size=self.batch_size, 
             shuffle=False, 
             num_workers=self.num_workers,
-            pin_memory=True
+            pin_memory=False,   # Mettere TRUE per GPU classico, FALSE per MPS
+            persistent_workers=True
         )
         
     def _get_filepaths(self, directory):
