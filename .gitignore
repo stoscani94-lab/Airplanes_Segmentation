@@ -1,2 +1,5 @@
 VOC_exercise/
 .DS_Store
+dataset/
+checkpoints/
+wandb/
