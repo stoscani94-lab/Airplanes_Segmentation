@@ -24,7 +24,7 @@ def main():
                    "Sofa", "Train", "TvMonitor"]
 
     # 2. CARICAMENTO DATI
-    datamodule = SegmentationDataModule(data_dir="data/", batch_size=4)
+    datamodule = SegmentationDataModule(data_dir="dataset/VOC_exercise/", batch_size=4)
     datamodule.setup(stage="test")
     test_loader = datamodule.test_dataloader()
 
@@ -92,7 +92,7 @@ def _plot_predictions(images, true_masks, pred_masks):
     images = images * std + mean # Denormalizzazione per il plot
     
     batch_size = images.size(0)
-    fig, axes = plt.subplots(batch_size, 3, figsize=(12, 4 * batch_size))
+    fig, axes = plt.subplots(batch_size, 3, figsize=(12, 4 * batch_size), squeeze=False)
     
     for i in range(batch_size):
         img_np = images[i].permute(1, 2, 0).cpu().numpy()
