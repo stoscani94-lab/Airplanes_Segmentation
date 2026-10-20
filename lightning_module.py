@@ -45,7 +45,7 @@ class SegmentationTask(L.LightningModule):
             v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-
+    
     def on_after_batch_transfer(self, batch, dataloader_idx):
         x, y = batch
         if self.trainer.training:
@@ -54,6 +54,14 @@ class SegmentationTask(L.LightningModule):
             x, y = self.val_transforms(x, y)
         return x, y
 
+    # modifica di visualizzazione in WandB per avere le epoch sull'asse x e non gli step.
+    def on_train_start(self):
+        if isinstance(self.logger, L.pytorch.loggers.WandbLogger):
+            self.logger.experiment.define_metric("epoch")
+            self.logger.experiment.define_metric("train/*", step_metric="epoch")
+            self.logger.experiment.define_metric("val/*", step_metric="epoch")
+
+    
     def forward(self, x):
         return self.model(x)
 
@@ -115,4 +123,7 @@ class SegmentationTask(L.LightningModule):
             }))
             
         # Log diretto nell'esperimento
-        self.logger.experiment.log({"val/predictions": mask_list})
+        self.logger.experiment.log({
+            "val/predictions": mask_list,
+            "epoch": self.current_epoch
+        })

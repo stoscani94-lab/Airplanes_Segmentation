@@ -12,23 +12,47 @@ def main():
    # num_workers = 0 per CPU/mac, num_workers = 4 per GPU. Posso anche fare num_workers = num_gpus-1
     datamodule = SegmentationDataModule(data_dir="dataset/VOC_exercise/", batch_size=16, num_workers=2)
 
-    # 2. Scelta Architettura (Commenta/Decommenta per i vari esperimenti)
-    # net = get_custom_baseline(num_classes=21)
-    net = get_unet(num_classes=21)
-    # net = get_deeplabv3plus(num_classes=21)
-    # net = get_transformer_seg(num_classes=21)
+    # 2. Scelta Architettura (input interattivo)
+    print("Scegli un numero da 1 a 4 per selezionare la rete: ")
+    print("1) Custom Baseline")
+    print("2) U-Net")
+    print("3) Deeplab-v3")
+    print("4) Transformer Segmentation")
+
+    while True:
+        try:
+            choice = int(input("La tua scelta: "))
+            if 1 <= choice <= 4:
+                break
+            print("Scelta non valida: inserisci un numero da 1 a 4.")
+        except ValueError:
+            print("Input non valido: inserisci un numero intero.")
+    
+    if choice == 1:
+        net = get_custom_baseline(num_classes=21)
+        nome_run = "Custom-Baseline"
+    elif choice == 2:
+        net = get_unet(num_classes=21)
+        nome_run = "U-Net"
+    elif choice == 3:
+        net = get_deeplabv3plus(num_classes=21)
+        nome_run = "DeepLab-v3"
+    elif choice == 4:
+        net = get_transformer_seg(num_classes=21)
+        nome_run = "Transformer"
+    else: 
+        print("Something unexpected happened.")
 
     # 3. Inizializzazione Task
     task = SegmentationTask(model=net, lr=1e-3, num_classes=21)
 
     # 4. Configurazione Tracking
-    # Sostituisci "nome-run" in base all'architettura per distinguerle sulla dashboard
-    wandb_logger = WandbLogger(project="semantic-segmentation-benchmark", name="Custom-Baseline")
+    wandb_logger = WandbLogger(project="semantic-segmentation-benchmark", name=nome_run)
 
     # 5. Configurazione Callbacks
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints/",
-        filename="best-model-{epoch:02d}-{val_loss:.2f}",
+        filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val/loss:.2f}}", # correzioni qui non ho capito perchè
         save_top_k=1,         # Salva solo il modello con la loss migliore
         monitor="val/loss",
         mode="min"
