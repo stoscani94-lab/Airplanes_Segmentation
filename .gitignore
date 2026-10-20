@@ -1,6 +1,9 @@
 VOC_exercise/
-.DS_Store
 dataset/
+.DS_Store
 checkpoints/
+debug_output/
 wandb/
 __pycache__/
+debug_pipeline.py
+reading_target_images.py

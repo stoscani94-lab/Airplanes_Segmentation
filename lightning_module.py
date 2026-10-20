@@ -15,7 +15,17 @@ class SegmentationTask(L.LightningModule):
         self.num_classes = num_classes
         self.lr = lr
         
-        self.criterion = nn.CrossEntropyLoss()
+        # MODIFICA DELLA METRICA per la LOSS FUNCTION
+        # 1. Converti la lista in un Tensor PyTorch di tipo float
+        # 2. Sposta il Tensor sullo stesso device del modello/dati
+        weights_list = [0.04,  1.19,  1.64,  1.17,  1.37,  1.28,  0.79,  0.89,  0.64,  1.09,  1.07,  1.00,  0.78,  1.09,  1.05,  0.38,  1.37,  1.20,  0.91, 0.83,  1.23]  # 1 classe background + 20 classi target
+        # DA FIXARE PER ESSERE COERENTI COL RESTO DELLO SCRIPT: 
+        # METTERE DEVICE NEGLI ARGOMENTI DA PASSARE ALLA FUNZIONE
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        weights = torch.tensor(weights_list, dtype=torch.float32).to(device)
+
+        self.criterion = nn.CrossEntropyLoss(weight=weights)
+
         
         # Inizializzazione TorchMetrics: MulticlassJaccardIndex = mIoU
         # Creiamo istanze separate per train e val per evitare che i calcoli si mescolino

@@ -10,11 +10,11 @@ from lightning_module import SegmentationTask # Lo finiremo nello Step 4
 def main():
     # 1. Configurazione Dati
    # num_workers = 0 per CPU/mac, num_workers = 4 per GPU. Posso anche fare num_workers = num_gpus-1
-    datamodule = SegmentationDataModule(data_dir="dataset/VOC_exercise/", batch_size=16, num_workers=4)
+    datamodule = SegmentationDataModule(data_dir="dataset/VOC_exercise/", batch_size=16, num_workers=2)
 
     # 2. Scelta Architettura (Commenta/Decommenta per i vari esperimenti)
-    net = get_custom_baseline(num_classes=21)
-    # net = get_unet(num_classes=21)
+    # net = get_custom_baseline(num_classes=21)
+    net = get_unet(num_classes=21)
     # net = get_deeplabv3plus(num_classes=21)
     # net = get_transformer_seg(num_classes=21)
 
