@@ -27,13 +27,13 @@ class SegmentationTask(L.LightningModule):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         weights = torch.tensor(weights_list, dtype=torch.float32).to(device)
 
-        self.criterion = nn.CrossEntropyLoss(weight=weights)
+        self.criterion = nn.CrossEntropyLoss(weight=weights, ignore_index=0)
 
         
         # Inizializzazione TorchMetrics: MulticlassJaccardIndex = mIoU
         # Creiamo istanze separate per train e val per evitare che i calcoli si mescolino
-        self.train_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
-        self.val_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
+        self.train_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro", ignore_index=0)
+        self.val_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro", ignore_index=0)
         
         # Pipeline di Augmentation (Vettorializzate su GPU)
         self.train_transforms = v2.Compose([
@@ -118,7 +118,7 @@ class SegmentationTask(L.LightningModule):
 
         optimizer = torch.optim.AdamW(param_groups, weight_decay=1e-4)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
-        
+
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
     def _log_wandb_masks(self, x, y, preds, num_samples=4):

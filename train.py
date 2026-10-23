@@ -44,7 +44,7 @@ def main():
         print("Something unexpected happened.")
 
     # 3. Inizializzazione Task
-    task = SegmentationTask(model=net, lr=[1e-4, 1e-3], num_classes=21)
+    task = SegmentationTask(model=net, lr=[1e-3, 1e-4], num_classes=21)
 
     # 4. Configurazione Tracking
     wandb_logger = WandbLogger(project="semantic-segmentation-benchmark", name=nome_run)
@@ -52,18 +52,21 @@ def main():
     # 5. Configurazione Callbacks
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints/",
-        filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val-loss:.2f}}", 
+        filename = "best-unet-{nome_run}-{epoch:02d}-{val/mIoU:.4f}", # chi cazzo lo sa se è corretto così
+        # filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val-loss:.2f}}", 
         # correzioni qui non ho capito perchè vorrebbe che sia
         # filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val/loss:.2f}}", 
-        save_top_k=1,         # Salva solo il modello con la loss migliore
-        monitor="val/loss",
-        mode="min"
+        save_top_k=1,         # Salva solo il modello con la loss migliore / mIoU migliore
+        monitor="val/mIoU",
+        mode="max"
     )
     
     early_stopping = EarlyStopping(
-        monitor="val/loss",
+        monitor="val/mIoU",
         patience=10,          # Se la val_loss non scende per 10 epoche, ferma il training
-        mode="min"
+                            # ora sto monitorando se val/mIoU non cresce per 10 epoche
+        mode="max",
+        verbose=True # manda messaggi alla fine del validation, proviamo. 
     )
 
     # Inizializza i componenti Rich
