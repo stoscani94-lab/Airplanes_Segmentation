@@ -44,7 +44,7 @@ def main():
         print("Something unexpected happened.")
 
     # 3. Inizializzazione Task
-    task = SegmentationTask(model=net, lr=1e-3, num_classes=21)
+    task = SegmentationTask(model=net, lr=[1e-4, 1e-3], num_classes=21)
 
     # 4. Configurazione Tracking
     wandb_logger = WandbLogger(project="semantic-segmentation-benchmark", name=nome_run)
@@ -52,7 +52,9 @@ def main():
     # 5. Configurazione Callbacks
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints/",
-        filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val/loss:.2f}}", # correzioni qui non ho capito perchè
+        filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val-loss:.2f}}", 
+        # correzioni qui non ho capito perchè vorrebbe che sia
+        # filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val/loss:.2f}}", 
         save_top_k=1,         # Salva solo il modello con la loss migliore
         monitor="val/loss",
         mode="min"

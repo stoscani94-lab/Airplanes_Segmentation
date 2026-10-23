@@ -4,10 +4,13 @@ import lightning as L
 from torchvision.transforms import v2
 from torchmetrics.classification import MulticlassJaccardIndex
 import wandb
+from typing import Union, List, Tuple
 
 class SegmentationTask(L.LightningModule):
     
-    def __init__(self, model: nn.Module, num_classes: int = 21, lr: float = 1e-3):
+    def __init__(self, model: nn.Module, num_classes: int = 21, 
+                    lr: Union[float, List[float], Tuple[float, float]] = 1e-3):
+
         super().__init__()
         # Ignoriamo il salvataggio dell'architettura nei log per non appesantirli
         self.save_hyperparameters(ignore=['model'])
@@ -74,7 +77,7 @@ class SegmentationTask(L.LightningModule):
         preds = torch.argmax(logits, dim=1)
         
         # Log di Lightning: passando l'oggetto train_iou, lui accumula automaticamente per l'intera epoca
-        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         self.log("train/mIoU", self.train_iou(preds, y), on_step=False, on_epoch=True, prog_bar=True)
         
         return loss
@@ -96,8 +99,26 @@ class SegmentationTask(L.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=1e-4)
+
+        # Controlliamo se lr è una tupla/lista di 2 elementi E se il modello ha un encoder separato (tipico di smp)
+        if isinstance(self.lr, (list, tuple)) and len(self.lr) == 2 and hasattr(self.model, 'encoder'):
+            # NOTA: metto decoder per primo, quello con il lr più alto, così se metto 2 lr ma il modello non 
+            # ha encoder/decoder terrò solo il primo valore come valore per tutta la rete.
+            decoder_lr, encoder_lr  = self.lr
+            param_groups = [
+                {"params": self.model.encoder.parameters(), "lr": encoder_lr},
+                {"params": self.model.decoder.parameters(), "lr": decoder_lr},
+                {"params": self.model.segmentation_head.parameters(), "lr": decoder_lr},
+            ]
+        else:
+            # Fallback: LR unico per tutto
+            # Gestiamo il caso in cui l'utente passi per sbaglio una lista di 1 elemento o il modello non sia smp
+            single_lr = self.lr if isinstance(self.lr, float) else self.lr[0]
+            param_groups = [{"params": self.model.parameters(), "lr": single_lr}]
+
+        optimizer = torch.optim.AdamW(param_groups, weight_decay=1e-4)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
+        
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
     def _log_wandb_masks(self, x, y, preds, num_samples=4):
