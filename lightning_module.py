@@ -1,10 +1,32 @@
 import torch
 import torch.nn as nn
+import segmentation_models_pytorch as smp
 import lightning as L
 from torchvision.transforms import v2
 from torchmetrics.classification import MulticlassJaccardIndex
 import wandb
 from typing import Union, List, Tuple
+
+class CEDiceLoss(nn.Module):
+    def __init__(self, ce_weights=None, dice_weight=0.5, ce_weight_multiplier=0.5):
+        super().__init__()
+        self.dice_weight = dice_weight
+        self.ce_weight_multiplier = ce_weight_multiplier
+        
+        # La tua CE pesata attuale
+        self.ce = nn.CrossEntropyLoss(weight=ce_weights)
+        
+        # La Dice Loss di smp configurata per il multiclasse
+        # Da notare: smp prende i logits in ingresso (come la CE), quindi non serve fare la softmax prima!
+        self.dice = smp.losses.DiceLoss(
+            mode='multiclass'
+        )
+        
+    def forward(self, logits, targets):
+        loss_ce = self.ce(logits, targets)
+        loss_dice = self.dice(logits, targets)
+        return (self.ce_weight_multiplier * loss_ce) + (self.dice_weight * loss_dice)
+
 
 class SegmentationTask(L.LightningModule):
     
@@ -27,13 +49,15 @@ class SegmentationTask(L.LightningModule):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         weights = torch.tensor(weights_list, dtype=torch.float32).to(device)
 
-        self.criterion = nn.CrossEntropyLoss(weight=weights, ignore_index=0)
+        # self.criterion = nn.CrossEntropyLoss(weight=weights)
 
+        # versione con criterion misto, 50% CrossEntropy, 50% Dice
+        self.criterion = CEDiceLoss(ce_weights=weights)
         
         # Inizializzazione TorchMetrics: MulticlassJaccardIndex = mIoU
         # Creiamo istanze separate per train e val per evitare che i calcoli si mescolino
-        self.train_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro", ignore_index=0)
-        self.val_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro", ignore_index=0)
+        self.train_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
+        self.val_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
         
         # Pipeline di Augmentation (Vettorializzate su GPU)
         self.train_transforms = v2.Compose([

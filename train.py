@@ -52,7 +52,8 @@ def main():
     # 5. Configurazione Callbacks
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints/",
-        filename = "best-unet-{nome_run}-{epoch:02d}-{val/mIoU:.4f}", # chi cazzo lo sa se è corretto così
+        filename = f"best-unet-{nome_run}-epoch={{epoch:02d}}-val_mIoU={{val/mIoU:.4f}}",
+        # filename = "best-unet-{nome_run}-{epoch:02d}-{val/mIoU:.4f}", # chi cazzo lo sa se è corretto così
         # filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val-loss:.2f}}", 
         # correzioni qui non ho capito perchè vorrebbe che sia
         # filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val/loss:.2f}}", 
