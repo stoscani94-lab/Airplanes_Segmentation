@@ -7,6 +7,7 @@ from torchmetrics.classification import MulticlassJaccardIndex
 import wandb
 from typing import Union, List, Tuple
 
+# Loss function combinazione di Dice + CrossEntropy, con weighted classes per la CE
 class CEDiceLoss(nn.Module):
     def __init__(self, ce_weights=None, dice_weight=0.5, ce_weight_multiplier=0.5):
         super().__init__()
@@ -27,11 +28,29 @@ class CEDiceLoss(nn.Module):
         loss_dice = self.dice(logits, targets)
         return (self.ce_weight_multiplier * loss_ce) + (self.dice_weight * loss_dice)
 
+# Loss function combinazione di Dice Loss + Focal Loss
+class FocalDiceLoss(nn.Module):
+    def __init__(self, dice_weight=0.5, focal_weight=0.5):
+        super().__init__()
+        self.dice_weight = dice_weight
+        self.focal_weight = focal_weight
+        
+        # La Focal Loss si bilancia da sola in base alla confidenza (gamma=2.0 di default in smp)
+        self.focal = smp.losses.FocalLoss(mode='multiclass')
+        self.dice = smp.losses.DiceLoss(mode='multiclass')
+        
+    def forward(self, logits, targets):
+        loss_focal = self.focal(logits, targets)
+        loss_dice = self.dice(logits, targets)
+        return (self.focal_weight * loss_focal) + (self.dice_weight * loss_dice)
 
 class SegmentationTask(L.LightningModule):
     
-    def __init__(self, model: nn.Module, num_classes: int = 21, 
-                    lr: Union[float, List[float], Tuple[float, float]] = 1e-3):
+    def __init__(self, model: nn.Module, 
+                    num_classes: int = 21, 
+                    lr: Union[float, List[float], Tuple[float, float]] = 1e-3,
+                    num_epochs: int = 50    
+                ):
 
         super().__init__()
         # Ignoriamo il salvataggio dell'architettura nei log per non appesantirli
@@ -39,20 +58,19 @@ class SegmentationTask(L.LightningModule):
         self.model = model
         self.num_classes = num_classes
         self.lr = lr
+        self.num_epochs = num_epochs
         
-        # MODIFICA DELLA METRICA per la LOSS FUNCTION
+        # Pesi per la CrossEntropy
         # 1. Converti la lista in un Tensor PyTorch di tipo float
         # 2. Sposta il Tensor sullo stesso device del modello/dati
-        weights_list = [0.04,  1.19,  1.64,  1.17,  1.37,  1.28,  0.79,  0.89,  0.64,  1.09,  1.07,  1.00,  0.78,  1.09,  1.05,  0.38,  1.37,  1.20,  0.91, 0.83,  1.23]  # 1 classe background + 20 classi target
-        # DA FIXARE PER ESSERE COERENTI COL RESTO DELLO SCRIPT: 
-        # METTERE DEVICE NEGLI ARGOMENTI DA PASSARE ALLA FUNZIONE
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        weights = torch.tensor(weights_list, dtype=torch.float32).to(device)
+        # weights_list = [0.04,  1.19,  1.64,  1.17,  1.37,  1.28,  0.79,  0.89,  0.64,  1.09,  1.07,  1.00,  0.78,  1.09,  1.05,  0.38,  1.37,  1.20,  0.91, 0.83,  1.23]  # 1 classe background + 20 classi target
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # weights = torch.tensor(weights_list, dtype=torch.float32).to(device)
 
+        # Choose 1 of the 3 loss: 
         # self.criterion = nn.CrossEntropyLoss(weight=weights)
-
-        # versione con criterion misto, 50% CrossEntropy, 50% Dice
-        self.criterion = CEDiceLoss(ce_weights=weights)
+        # self.criterion = CEDiceLoss(ce_weights=weights)
+        self.criterion = FocalDiceLoss()
         
         # Inizializzazione TorchMetrics: MulticlassJaccardIndex = mIoU
         # Creiamo istanze separate per train e val per evitare che i calcoli si mescolino
@@ -141,7 +159,7 @@ class SegmentationTask(L.LightningModule):
             param_groups = [{"params": self.model.parameters(), "lr": single_lr}]
 
         optimizer = torch.optim.AdamW(param_groups, weight_decay=1e-4)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.num_epochs)
 
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 

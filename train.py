@@ -11,6 +11,7 @@ def main():
     # 1. Configurazione Dati
    # num_workers = 0 per CPU/mac, num_workers = 4 per GPU. Posso anche fare num_workers = num_gpus-1
     datamodule = SegmentationDataModule(data_dir="dataset/VOC_exercise/", batch_size=16, num_workers=2)
+    max_epochs = 50;
 
     # 2. Scelta Architettura (input interattivo)
     print("Scegli un numero da 1 a 4 per selezionare la rete: ")
@@ -43,8 +44,19 @@ def main():
     else: 
         print("Something unexpected happened.")
 
+    # Aggiunte al nome personalizzate
+    print()
+    add_name = input("Vuoi aggiungere un commento al nome della net? ").strip()
+    # Se add_name non è vuoto (ovvero l'utente ha scritto qualcosa)
+    if add_name:
+        # Sostituisci eventuali spazi interni con underscore per sicurezza nei nomi dei file
+        add_name = add_name.replace(" ", "_")   
+        # Aggiungi un separatore (es. un trattino o un underscore) prima del commento
+        nome_run = f"{nome_run}_{add_name}"
+
+    
     # 3. Inizializzazione Task
-    task = SegmentationTask(model=net, lr=[1e-3, 1e-4], num_classes=21)
+    task = SegmentationTask(model=net, lr=[1e-3, 1e-4], num_classes=21, num_epochs=max_epochs)
 
     # 4. Configurazione Tracking
     wandb_logger = WandbLogger(project="semantic-segmentation-benchmark", name=nome_run)
@@ -52,7 +64,8 @@ def main():
     # 5. Configurazione Callbacks
     checkpoint_callback = ModelCheckpoint(
         dirpath="checkpoints/",
-        filename = f"best-unet-{nome_run}-epoch={{epoch:02d}}-val_mIoU={{val/mIoU:.4f}}",
+        # DEVO CAMBIARE I NOMI DELLE VARIABILI, lo / induce cartelle (e non mi piace)
+        filename = f"best-{nome_run}-epoch={{epoch:02d}}-val_mIoU={{val/mIoU:.4f}}",
         # filename = "best-unet-{nome_run}-{epoch:02d}-{val/mIoU:.4f}", # chi cazzo lo sa se è corretto così
         # filename=f"best-model-{nome_run}-{{epoch:02d}}-{{val-loss:.2f}}", 
         # correzioni qui non ho capito perchè vorrebbe che sia
@@ -76,7 +89,7 @@ def main():
 
     # 6. Inizializzazione Trainer
     trainer = L.Trainer(
-        max_epochs=50,
+        max_epochs=max_epochs,
         logger=wandb_logger,
         callbacks=[checkpoint_callback, early_stopping, rich_progress_bar, rich_model_summary],
         accelerator="auto",   # Trova automaticamente GPU (CUDA/MPS) o CPU
