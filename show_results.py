@@ -44,6 +44,7 @@ def main():
 
     # 5. LOOP DI TEST SULL'INTERO TEST SET
     print("Calcolo delle metriche sull'intero test set in corso...")
+    last_images, last_masks, last_preds = None, None, None
     with torch.no_grad():
         for batch in test_loader:
             images, masks = batch
@@ -61,7 +62,10 @@ def main():
             conf_mat_metric.update(preds, masks)
             
             # Conserviamo l'ultimo batch per visualizzarlo graficamente
+            if last_images is not None:
+                almost_last_images, almost_last_masks, almost_last_preds = last_images, last_masks, last_preds
             last_images, last_masks, last_preds = images, masks, preds
+
 
     # 6. ESTRAZIONE E STAMPA METRICHE
     class_ious = iou_metric.compute().cpu()
@@ -85,10 +89,12 @@ def main():
     plt.savefig("confusion_matrix.png")
     plt.show()
 
-    # 8. VISUALIZZAZIONE DELLE PREDIZIONI (Ultimo batch)
-    _plot_predictions(last_images, last_masks, last_preds)
+    # 8. VISUALIZZAZIONE DELLE PREDIZIONI (Ultimo e penultimo batch)
+    _plot_predictions(almost_last_images, almost_last_masks, almost_last_preds)
+    _plot_predictions(last_images, last_masks, last_preds, 2)
 
-def _plot_predictions(images, true_masks, pred_masks):
+
+def _plot_predictions(images, true_masks, pred_masks, num_image = 0):
     """Denormalizza e plotta Immagine Reale | Maschera Reale | Predizione"""
     mean = torch.tensor([0.485, 0.456, 0.406], device=images.device).view(1, 3, 1, 1)
     std = torch.tensor([0.229, 0.224, 0.225], device=images.device).view(1, 3, 1, 1)
@@ -118,7 +124,11 @@ def _plot_predictions(images, true_masks, pred_masks):
         axes[i, 2].axis("off")
 
     plt.tight_layout()
-    plt.savefig("predictions_sample.png")
+    if num_image == 0:
+        plt.savefig("predictions_sample.png")
+    else:
+        name_image = "predictions_sample" + str(num_image) + ".png"
+        plt.savefig(name_image)
     plt.show()
 
 if __name__ == "__main__":

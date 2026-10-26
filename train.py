@@ -10,8 +10,8 @@ from lightning_module import SegmentationTask # Lo finiremo nello Step 4
 def main():
     # 1. Configurazione Dati
    # num_workers = 0 per CPU/mac, num_workers = 4 per GPU. Posso anche fare num_workers = num_gpus-1
-    datamodule = SegmentationDataModule(data_dir="dataset/VOC_exercise/", batch_size=16, num_workers=2)
-    max_epochs = 50;
+    datamodule = SegmentationDataModule(data_dir="dataset/VOC_exercise/", batch_size=32, num_workers=2)
+    max_epochs = 100;
 
     # 2. Scelta Architettura (input interattivo)
     print("Scegli un numero da 1 a 4 per selezionare la rete: ")
@@ -56,7 +56,7 @@ def main():
 
     
     # 3. Inizializzazione Task
-    task = SegmentationTask(model=net, lr=[1e-3, 1e-4], num_classes=21, num_epochs=max_epochs)
+    task = SegmentationTask(model=net, lr=[1e-3, 3e-5], num_classes=21, num_epochs=max_epochs)
 
     # 4. Configurazione Tracking
     wandb_logger = WandbLogger(project="semantic-segmentation-benchmark", name=nome_run)
@@ -77,7 +77,7 @@ def main():
     
     early_stopping = EarlyStopping(
         monitor="val/mIoU",
-        patience=10,          # Se la val_loss non scende per 10 epoche, ferma il training
+        patience=12,          # Se la val_loss non scende per 10 epoche, ferma il training
                             # ora sto monitorando se val/mIoU non cresce per 10 epoche
         mode="max",
         verbose=True # manda messaggi alla fine del validation, proviamo. 
