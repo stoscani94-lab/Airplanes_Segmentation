@@ -30,8 +30,8 @@ def main():
 
     # 3. CARICAMENTO MODELLO
     # net = get_custom_baseline(num_classes=num_classes)
-    net = get_unet(num_classes=21)
-    # net = get_deeplabv3plus(num_classes=21)
+    # net = get_unet(num_classes=21)
+    net = get_deeplabv3plus(num_classes=21)
     # net = get_transformer_seg(num_classes=21)
     model = SegmentationTask.load_from_checkpoint(ckpt_path, model=net)
     model.to(device)

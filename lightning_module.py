@@ -78,10 +78,26 @@ class SegmentationTask(L.LightningModule):
         self.val_iou = MulticlassJaccardIndex(num_classes=num_classes, average="macro")
         
         # Pipeline di Augmentation (Vettorializzate su GPU)
+        # First version (easy peasy)
+        # self.train_transforms = v2.Compose([
+        #     v2.RandomResizedCrop(size=(256, 256), antialias=True),
+        #     v2.RandomHorizontalFlip(p=0.5),
+        #     v2.ColorJitter(brightness=0.2, contrast=0.2),
+        #     v2.ToDtype(torch.float32, scale=True),
+        #     v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # ])
+        # Second version
         self.train_transforms = v2.Compose([
-            v2.RandomResizedCrop(size=(256, 256), antialias=True),
-            v2.RandomHorizontalFlip(p=0.5),
-            v2.ColorJitter(brightness=0.2, contrast=0.2),
+             # 1. Geometria di base
+            v2.RandomResizedCrop(size=(256, 256), scale=(0.8, 1.0), antialias=True),
+            v2.RandomHorizontalFlip(p=0.5),    
+            # 2. Nuova Varianza Spaziale: Rotazioni, traslazioni e leggeri cambi di prospettiva
+            v2.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)),   
+            # 3. Nuova Varianza Visiva (Agisce solo sull'immagine, non sulla maschera)
+            v2.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+            # Il Gaussian Blur costringe la rete a imparare le forme generali invece di fissarsi sui micro-dettagli (texture)
+            v2.RandomApply([v2.GaussianBlur(kernel_size=(3, 5), sigma=(0.1, 2.0))], p=0.3), 
+            # 4. Conversioni e Normalizzazione
             v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])

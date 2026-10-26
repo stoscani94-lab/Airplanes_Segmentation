@@ -56,7 +56,7 @@ def main():
 
     
     # 3. Inizializzazione Task
-    task = SegmentationTask(model=net, lr=[1e-3, 3e-5], num_classes=21, num_epochs=max_epochs)
+    task = SegmentationTask(model=net, lr=[1e-4, 5e-6], num_classes=21, num_epochs=max_epochs)
 
     # 4. Configurazione Tracking
     wandb_logger = WandbLogger(project="semantic-segmentation-benchmark", name=nome_run)
